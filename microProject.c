@@ -33,14 +33,26 @@ Data Stack size         : 512
 //#include "rectangle.c"
 #include "circle.c"
 
-int delay =10;
+int delay = 10;
 int delay_counter = 10;
-bool flag=true;
+
+bool reverse_flag = false;
+bool stopped_flag = false;
+
 char rows[] = {0x03, 0x06, 0x0C, 0x09};
 char columns[] = {0x30, 0x60, 0xC0, 0x90};
-eeprom int x=0;
-eeprom int y=0;
 
+eeprom int x = 0;
+eeprom int y = 0;
+
+void return_to_start()
+{
+    char strx[50];
+    x = 0;
+    y = 0;
+    sprintf(strx, "(%2d, %2d)", x, y);
+    glcd_outtextxy(75, 10, strx);
+}
 
 int calculate_pixel(int i, int j, flash unsigned char *a)
 {
@@ -50,43 +62,79 @@ int calculate_pixel(int i, int j, flash unsigned char *a)
     return pixel;
 }
 
-
-void print_rectangle(){
-    int i=17;
-    int j=7;
-    int x = 0;
-    int y = 0;
+void print_rectangle()
+{
+    int i = 17;
+    int j = 7;
+    char strx[50];
     glcd_clear();
-    glcd_outtextxy(75,0,"cor:");
-    glcd_outtextxy(75,20,"speed:");
-    glcd_outtextxy(75,30,"10");
+    glcd_outtextxy(75, 0, "cor:");
+    glcd_outtextxy(75, 20, "speed:");
+    glcd_outtextxy(75, 30, "10");
 
-    for(;j<47;j++){
+    for (; j < 47; j++)
+    {
+        if (stopped_flag == true)
+        {
+            return_to_start();
+            return;
+        }
         PORTC &= 0xf0;
-        PORTC |= rows[j % 4];
+        PORTC |= rows[(j - 7) % 4];
+        PORTD .6 = true;
         x++;
-        PORTD.6=true;
-        glcd_setpixel(j,i);
+        glcd_setpixel(j, i);
+        sprintf(strx, "(%2d, %2d)", x, y);
+        glcd_outtextxy(75, 10, strx);
+        delay_ms(delay);
     }
-    for(;i<47;i++){
+    for (; i < 47; i++)
+    {
+        if (stopped_flag == true)
+        {
+            return_to_start();
+            return;
+        }
         PORTC &= 0x0f;
-        PORTC |= columns[i % 4];
+        PORTC |= columns[(i - 17) % 4];
+        PORTD .6 = true;
         y++;
-        PORTD.6=true;
-        glcd_setpixel(j,i);
+        glcd_setpixel(j, i);
+        sprintf(strx, "(%2d, %2d)", x, y);
+        glcd_outtextxy(75, 10, strx);
+        delay_ms(delay);
     }
-    for(;j>=7;j--){
+    for (; j >= 7; j--)
+    {
+        if (stopped_flag == true)
+        {
+            return_to_start();
+            return;
+        }
         PORTC &= 0xf0;
-        PORTC |= rows[j % 4];
+        PORTC |= rows[(j - 7) % 4];
+        PORTD .6 = true;
         x++;
-        PORTD.6=true;
-        glcd_setpixel(j,i);
+        glcd_setpixel(j, i);
+        sprintf(strx, "(%2d, %2d)", x, y);
+        glcd_outtextxy(75, 10, strx);
+        delay_ms(delay);
     }
-    for(;i>=17;i--){
+    for (; i >= 17; i--)
+    {
+        if (stopped_flag == true)
+        {
+            return_to_start();
+            return;
+        }
         PORTC &= 0x0f;
-        PORTC |= columns[i % 4];
+        PORTC |= columns[(i - 17) % 4];
+        PORTD .6 = true;
         y++;
-        glcd_setpixel(j,i);
+        glcd_setpixel(j, i);
+        sprintf(strx, "(%2d, %2d)", x, y);
+        glcd_outtextxy(75, 10, strx);
+        delay_ms(delay);
     }
 }
 
@@ -95,19 +143,25 @@ void iteration_LCD(flash unsigned char *image)
     int i = 0;
     int j = 0;
     char strx[50];
-    glcd_clear();
-    glcd_outtextxy(75,0,"cor:");
-    glcd_outtextxy(75,20,"speed:");
-    glcd_outtextxy(75,30,"10");
-    for (i = 0; i < 64; i++)
+    //glcd_clear();
+    glcd_outtextxy(75, 0, "cor:");
+    glcd_outtextxy(75, 20, "speed:");
+    glcd_outtextxy(75, 30, "10");
+    for (i = y; i < 64; i++)
     {
         if (i % 2 == 0)
         {
-            for (j = 0; j < 64; j++)
+            for (j = x; j < 64 && x < 64; j++)
             {
+                if (stopped_flag == true)
+                {
+                    return;
+                }
                 PORTC &= 0xf0;
                 PORTC |= rows[j % 4];
-                if(flag==true){
+                x++;
+                if (reverse_flag == false)
+                {
                     if (calculate_pixel(i, j, image) == 1)
                     {
                         PORTD .6 = true;
@@ -118,7 +172,8 @@ void iteration_LCD(flash unsigned char *image)
                         PORTD .6 = false;
                     }
                 }
-                else{
+                else
+                {
                     if (calculate_pixel(i, j, image) == 0)
                     {
                         PORTD .6 = true;
@@ -129,48 +184,60 @@ void iteration_LCD(flash unsigned char *image)
                         PORTD .6 = false;
                     }
                 }
-                
+
                 sprintf(strx, "(%2d, %2d)", x, y);
-                glcd_outtextxy(75, 10, strx);
-                delay_ms(delay);
-            }    
-        }
-        else
-        {
-            for (j = 63; j >= 0; j--)
-            {
-                PORTC &= 0xf0;
-                PORTC |= rows[j % 4];
-                if(flag==true){
-                    if (calculate_pixel(i, j, image) == 1)
-                    {
-                        PORTD .6 = true;
-                        glcd_setpixel(j, i);
-                    }
-                    else
-                    {
-                        PORTD .6 = false;
-                    }
-                }
-                else{
-                    if (calculate_pixel(i, j, image) == 0)
-                    {
-                        PORTD .6 = true;
-                        glcd_setpixel(j, i);
-                    }
-                    else
-                    {
-                        PORTD .6 = false;
-                    }
-                }
-                
-                sprintf(strx, "(%2d, %2d)", j, i);
                 glcd_outtextxy(75, 10, strx);
                 delay_ms(delay);
             }
         }
+        else
+        {
+            for (j = x; j >= 0 && x >= 0; j--)
+            {
+                if (stopped_flag == true)
+                {
+                    return;
+                }
+                PORTC &= 0xf0;
+                PORTC |= rows[j % 4];
+                x--;
+                if (reverse_flag == false)
+                {
+                    if (calculate_pixel(i, j, image) == 1)
+                    {
+                        PORTD .6 = true;
+                        glcd_setpixel(j, i);
+                    }
+                    else
+                    {
+                        PORTD .6 = false;
+                    }
+                }
+                else
+                {
+                    if (calculate_pixel(i, j, image) == 0)
+                    {
+                        PORTD .6 = true;
+                        glcd_setpixel(j, i);
+                    }
+                    else
+                    {
+                        PORTD .6 = false;
+                    }
+                }
+
+                sprintf(strx, "(%2d, %2d)", x, y);
+                glcd_outtextxy(75, 10, strx);
+                delay_ms(delay);
+            }
+        }
+        if (stopped_flag == true)
+        {
+            return;
+        }
         PORTC &= 0x0f;
         PORTC |= columns[i % 4];
+        y++;
         delay_ms(delay);
     }
     sprintf(strx, "(%2d, %2d)", j, i);
@@ -228,7 +295,7 @@ void decrease_speed()
 void increase_speed()
 {
     char buff[16];
-    if (delay-20 > 10)
+    if (delay - 20 >= 10)
     {
         delay -= 20;
         delay_counter++;
@@ -241,36 +308,44 @@ void increase_speed()
 interrupt[EXT_INT0] void ext_int0_isr(void)
 {
     // Place your code here
-    
+
     int key;
     key = get_key();
     DDRB |= 0b11110000;
-    #asm("sei")
+#asm("sei")
     switch (key)
     {
     case 1: //print rectangle
         //iteration_LCD(rectangle);
+        stopped_flag = false;
         print_rectangle();
         break;
 
     case 2: //print circle
+        stopped_flag = false;
         iteration_LCD(circle);
         break;
 
     case 3: //print kashan logo
+        stopped_flag = false;
         iteration_LCD(kashanu_logo);
         break;
 
     case 4: //print apple logo
+        stopped_flag = false;
         iteration_LCD(apple_logo);
         break;
 
     case 5:
-        flag=false;
+        reverse_flag = true;
         break;
 
-     case 6:
-        flag=true;
+    case 6:
+        reverse_flag = false;
+        break;
+
+    case 7:
+        stopped_flag = true;
         break;
 
     case 10:
@@ -286,7 +361,6 @@ interrupt[EXT_INT0] void ext_int0_isr(void)
 
 void main(void)
 {
-
     GLCDINIT_t glcd_init_data;
 
     DDRC = 0XFF;
@@ -305,6 +379,8 @@ void main(void)
     MCUCSR = (0 << ISC2);
     GIFR = (0 << INTF1) | (1 << INTF0) | (0 << INTF2);
 
+    return_to_start();
+
 // Global enable interrupts
 #asm("sei")
 
@@ -313,9 +389,10 @@ void main(void)
     glcd_init_data.writexmem = NULL;
 
     glcd_init(&glcd_init_data);
-    //glcd_putimagef(0,0, kashanu_logo,GLCD_PUTCOPY);
 
     glcd_outtext("please enter a key accourding to the box: ");
+    delay_ms(100);
+    glcd_clear();
     while (1)
     {
     }
